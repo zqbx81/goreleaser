@@ -83,9 +83,21 @@ func (c *gitlabClient) Changelog(_ *context.Context, repo Repo, prev, current st
 	return strings.Join(log, "\n"), nil
 }
 
+func (c *gitlabClient) getRepoID(projectID string) (int, error) {
+	projects, _, err := c.client.Projects.ListProjects(&gitlab.ListProjectsOptions{
+		Search:           &projectID,
+		SearchNamespaces: gitlab.Bool(true),
+	})
+	if err != nil {
+		return 0, err
+	}
+	return projects[0].ID, nil
+}
+
 // getDefaultBranch get the default branch
 func (c *gitlabClient) getDefaultBranch(_ *context.Context, repo Repo) (string, error) {
-	projectID := repo.String()
+	_projectID := repo.String()
+	projectID, _ := c.getRepoID(_projectID)
 	p, res, err := c.client.Projects.GetProject(projectID, nil)
 	if err != nil {
 		log.
@@ -139,7 +151,8 @@ func (c *gitlabClient) CreateFile(
 	message string, // the commit msg
 ) error {
 	fileName := path
-	projectID := repo.String()
+	_projectID := repo.String()
+	projectID, _ := c.getRepoID(_projectID)
 
 	// Use the project default branch if we can get it...otherwise, just use
 	// 'master'
@@ -198,7 +211,7 @@ func (c *gitlabClient) CreateFile(
 		WithField("projectID", projectID).
 		Debug("found already existing brew formula file")
 
-	if res.StatusCode == 404 {
+	if strings.Contains(err.Error(), "A file with this name doesn't exist") {
 		log.
 			WithField("fileName", fileName).
 			WithField("ref", ref).
@@ -278,10 +291,11 @@ func (c *gitlabClient) CreateRelease(ctx *context.Context, body string) (release
 	if err != nil {
 		return "", err
 	}
-	projectID := gitlabName
+	_projectID := gitlabName
 	if ctx.Config.Release.GitLab.Owner != "" {
-		projectID = ctx.Config.Release.GitLab.Owner + "/" + projectID
+		_projectID = ctx.Config.Release.GitLab.Owner + "/" + _projectID
 	}
+	projectID, _ := c.getRepoID(_projectID)
 	log.
 		WithField("owner", ctx.Config.Release.GitLab.Owner).
 		WithField("name", gitlabName).
@@ -381,12 +395,12 @@ func (c *gitlabClient) Upload(
 	if err != nil {
 		return err
 	}
-	projectID := gitlabName
+	_projectID := gitlabName
 	// check if owner is empty
 	if ctx.Config.Release.GitLab.Owner != "" {
-		projectID = ctx.Config.Release.GitLab.Owner + "/" + projectID
+		_projectID = ctx.Config.Release.GitLab.Owner + "/" + _projectID
 	}
-
+	projectID, _ := c.getRepoID(_projectID)
 	var baseLinkURL string
 	var linkURL string
 	if ctx.Config.GitLabURLs.UsePackageRegistry {
@@ -473,9 +487,10 @@ func (c *gitlabClient) getMilestoneByTitle(repo Repo, title string) (*gitlab.Mil
 	opts := &gitlab.ListMilestonesOptions{
 		Title: &title,
 	}
-
+	_projectID := repo.String()
+	projectID, _ := c.getRepoID(_projectID)
 	for {
-		milestones, resp, err := c.client.Milestones.ListMilestones(repo.String(), opts)
+		milestones, resp, err := c.client.Milestones.ListMilestones(projectID, opts)
 		if err != nil {
 			return nil, err
 		}

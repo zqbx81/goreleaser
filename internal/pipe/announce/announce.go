@@ -19,6 +19,7 @@ import (
 	"github.com/goreleaser/goreleaser/internal/pipe/telegram"
 	"github.com/goreleaser/goreleaser/internal/pipe/twitter"
 	"github.com/goreleaser/goreleaser/internal/pipe/webhook"
+	"github.com/goreleaser/goreleaser/internal/pipe/wecom"
 	"github.com/goreleaser/goreleaser/internal/skips"
 	"github.com/goreleaser/goreleaser/internal/tmpl"
 	"github.com/goreleaser/goreleaser/pkg/context"
@@ -44,6 +45,7 @@ var announcers = []Announcer{
 	teams.Pipe{},
 	telegram.Pipe{},
 	twitter.Pipe{},
+	wecom.Pipe{},
 	webhook.Pipe{},
 }
 
